@@ -47,7 +47,7 @@ class CheckerWidget(QtGui.QWidget):
         # buttons
         self.set_source_directory_button = None
         self.set_not_posted_directory_button = None
-        self.set_not_posted_directory_button = None
+        self.set_posted_directory_button = None
 
         # create tab view
         self.tab_widget = QtGui.QTabWidget(self)
@@ -85,27 +85,6 @@ class CheckerWidget(QtGui.QWidget):
         if image_path is not None:
             self.single_search(image_path)
 
-        self.sort_images_button = QtGui.QPushButton('Sort Images', self.bulk_search_tab)
-        self.sort_images_button.setGeometry(10, 150, 100, 25)
-        self.sort_images_button.setEnabled(False)
-
-    def create_push_button(self, x_pos, y_pos, width, height, text, parent):
-        new_button = QtGui.QPushButton(text, parent)
-        new_button.setGeometry(x_pos, y_pos, width, height)
-        return new_button
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.accept()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event):
-        for url in event.mimeData().urls():
-            image_path = url.toLocalFile()
-            if os.path.isfile(image_path):
-                self.single_search(image_path)
-
     def single_search(self, image_path):
         checker_thread = CheckerThread(self, image_path, self.checker)
         self.connect(checker_thread, QtCore.SIGNAL("Finished ( PyQt_PyObject ) "), self.done_checking)
@@ -119,6 +98,80 @@ class CheckerWidget(QtGui.QWidget):
         self.loading_text_label.setText('Searching...')
         self.loading_text_label.show()
         self.loading_label.show()
+
+    # creates the labels displayed on construction
+    def set_initial_labels(self, image_path):
+
+        self.your_image_label = self.create_text_label(10, 5, 300, 60, 'Your Image', self.single_search_tab)
+        self.your_image_label.setFont(self.mission_gothic_thin_large)
+        self.your_image_label.hide()
+
+        self.loading_text_label = self.create_text_label(45, 375, 200, 30, "Searching...", self.single_search_tab)
+        self.loading_text_label.setFont(self.mission_gothic_thin_small)
+        self.loading_text_label.hide()
+
+        self.loading_label = self.create_gif_label(10, 375, 30, 30,
+                                                   self.checker.base_directory +
+                                                   'media\\loading.gif',
+                                                   self.single_search_tab)
+        self.loading_label.hide()
+
+        self.similar_label = self.create_text_label(330, 5, 300, 60, 'Similar images', self.single_search_tab)
+        self.similar_label.setFont(self.mission_gothic_thin_large)
+        self.similar_label.hide()
+
+        # create labels for 'Bulk Search' tab
+        self.source_directory_label = self.create_text_label(220, 10, 520, 25, '', self.bulk_search_tab)
+        self.source_directory_label.setFont(self.mission_gothic_thin_small)
+
+        self.not_posted_directory_label = self.create_text_label(220, 40, 520, 25, '', self.bulk_search_tab)
+        self.not_posted_directory_label.setFont(self.mission_gothic_thin_small)
+
+        self.posted_directory_label = self.create_text_label(220, 70, 520, 25, '', self.bulk_search_tab)
+        self.posted_directory_label.setFont(self.mission_gothic_thin_small)
+
+        self.subreddits_label = self.create_text_label(10, 10, 300, 25, 'Subreddits', self.options_tab)
+        self.subreddits_label.setFont(self.mission_gothic_thin_small)
+
+    def set_initial_objects(self, image_path):
+        self.set_initial_labels(image_path)
+        self.set_initial_buttons()
+        self.set_initial_checkboxes()
+
+    def set_initial_buttons(self):
+        self.set_source_directory_button = self.create_push_button(10, 10, 200, 25,
+                                                                   'Select Source Directory',
+                                                                   self.bulk_search_tab)
+        self.set_source_directory_button.clicked.connect(self.make_choose_directory('source'))
+
+        self.set_not_posted_directory_button = self.create_push_button(10, 40, 200, 25,
+                                                                       'Select Not Posted Directory',
+                                                                       self.bulk_search_tab)
+        self.set_not_posted_directory_button.clicked.connect(self.make_choose_directory('not_posted'))
+
+        self.set_posted_directory_button = self.create_push_button(10, 70, 200, 25,
+                                                                   'Select Posted Directory',
+                                                                   self.bulk_search_tab)
+        self.set_posted_directory_button.clicked.connect(self.make_choose_directory('posted'))
+
+
+        self.sort_images_button = QtGui.QPushButton('Sort Images', self.bulk_search_tab)
+        self.sort_images_button.setGeometry(10, 150, 100, 25)
+
+    def set_initial_checkboxes(self):
+        self.nsfw_checkbox = self.create_checkbox(340, 10, 300, 20,
+                                                  'Show NSFW',
+                                                  self.mission_gothic_thin_xsmall,
+                                                  self.options_tab)
+        self.nsfw_checkbox.stateChanged.connect(self.make_update_nsfw)
+        self.nsfw_checkbox.setChecked(self.checker.user_settings['NSFW'])
+        self.set_subreddit_checkboxes()
+
+    # wrapper function to handle NSFW checkbox clicks
+    def make_update_nsfw(self):
+        def update_nsfw():
+            self.checker.user_settings['NSFW'] = not self.checker.user_settings['NSFW']
+        return update_nsfw()
 
     # wrapper function to handle directory selection call from a button
     def make_choose_directory(self, directory_type):
@@ -157,84 +210,11 @@ class CheckerWidget(QtGui.QWidget):
 
         return choose_directory
 
+    # wrapper function to handle subreddit checkbox clicks
     def make_update_subreddits(self, subreddit):
         def update_subreddits():
             self.checker.subreddits[subreddit]['checked'] = not self.checker.subreddits[subreddit]['checked']
         return update_subreddits
-
-    # creates the labels displayed on construction
-    def set_initial_labels(self, image_path):
-
-        self.your_image_label = self.create_text_label(10, 5, 300, 60, 'Your Image', self.single_search_tab)
-        self.your_image_label.setFont(self.mission_gothic_thin_large)
-        self.your_image_label.hide()
-
-        self.loading_text_label = self.create_text_label(45, 375, 200, 30, "Searching...", self.single_search_tab)
-        self.loading_text_label.setFont(self.mission_gothic_thin_small)
-        self.loading_text_label.hide()
-
-        self.loading_label = self.create_gif_label(10, 375, 30, 30,
-                                                   self.checker.base_directory +
-                                                   'media\\loading.gif',
-                                                   self.single_search_tab)
-        self.loading_label.hide()
-
-        self.similar_label = self.create_text_label(330, 5, 300, 60, 'Similar images', self.single_search_tab)
-        self.similar_label.setFont(self.mission_gothic_thin_large)
-        self.similar_label.hide()
-
-        # create labels for 'Bulk Search' tab
-        self.source_directory_label = self.create_text_label(220, 10, 520, 25, '', self.bulk_search_tab)
-        self.source_directory_label.setFont(self.mission_gothic_thin_small)
-
-        self.not_posted_directory_label = self.create_text_label(220, 40, 520, 25, '', self.bulk_search_tab)
-        self.not_posted_directory_label.setFont(self.mission_gothic_thin_small)
-
-        self.posted_directory_label = self.create_text_label(220, 70, 520, 25, '', self.bulk_search_tab)
-        self.posted_directory_label.setFont(self.mission_gothic_thin_small)
-
-        self.subreddits_label = self.create_text_label(10, 10, 300, 25, 'Subreddits', self.options_tab)
-        self.subreddits_label.setFont(self.mission_gothic_thin_small)
-
-    def create_checkbox(self, x_pos, y_pos, width, height, text, font, parent):
-        new_checkbox = QtGui.QCheckBox(text, parent)
-        new_checkbox.setGeometry(x_pos, y_pos, width, height)
-        new_checkbox.setFont(font)
-        return new_checkbox
-
-    def set_initial_objects(self, image_path):
-        self.set_initial_labels(image_path)
-        self.set_initial_buttons()
-        self.set_initial_checkboxes()
-
-    def set_initial_buttons(self):
-        self.set_source_directory_button = self.create_push_button(10, 10, 200, 25,
-                                                                   'Select Source Directory',
-                                                                   self.bulk_search_tab)
-        self.set_source_directory_button.clicked.connect(self.make_choose_directory('source'))
-
-        self.set_not_posted_directory_button = self.create_push_button(10, 40, 200, 25,
-                                                                       'Select Not Posted Directory',
-                                                                       self.bulk_search_tab)
-        self.set_not_posted_directory_button.clicked.connect(self.make_choose_directory('not_posted'))
-
-        self.set_posted_directory_button = QtGui.QPushButton('Select Posted Directory', self.bulk_search_tab)
-        self.set_posted_directory_button.setGeometry(10, 70, 200, 25)
-        self.set_posted_directory_button.clicked.connect(self.make_choose_directory('posted'))
-
-    def set_initial_checkboxes(self):
-        self.nsfw_checkbox = self.create_checkbox(340, 10, 300, 20,
-                                                  'Show NSFW',
-                                                  self.mission_gothic_thin_xsmall,
-                                                  self.options_tab)
-        self.nsfw_checkbox.stateChanged.connect(self.make_update_nsfw)
-        self.nsfw_checkbox.setChecked(self.checker.user_settings['NSFW'])
-        self.set_subreddit_checkboxes()
-
-    def make_update_nsfw(self):
-        def update_nsfw():
-            self.checker.user_settings['NSFW'] = not self.checker.user_settings['NSFW']
-        return update_nsfw()
 
     def set_subreddit_checkboxes(self):
         i = 0
@@ -264,12 +244,6 @@ class CheckerWidget(QtGui.QWidget):
             y_pos += 30
             i += 1
 
-    # sets palette objects
-    def set_palettes(self):
-        self.overlay_label_palette = self.palette()
-        self.overlay_label_palette.setColor(self.overlay_label_palette.Background, self.transparent_black)
-        self.overlay_label_palette.setColor(self.overlay_label_palette.Foreground, QtCore.Qt.white)
-
     # centers window
     def center(self):
         qr = self.frameGeometry()
@@ -287,6 +261,12 @@ class CheckerWidget(QtGui.QWidget):
 
         self.mission_gothic_thin_xsmall = QtGui.QFont('Mission Gothic Light')
         self.mission_gothic_thin_xsmall.setPixelSize(14)
+
+    # sets palette objects
+    def set_palettes(self):
+        self.overlay_label_palette = self.palette()
+        self.overlay_label_palette.setColor(self.overlay_label_palette.Background, self.transparent_black)
+        self.overlay_label_palette.setColor(self.overlay_label_palette.Foreground, QtCore.Qt.white)
 
     # sets background color
     def set_background(self):
@@ -324,6 +304,17 @@ class CheckerWidget(QtGui.QWidget):
         new_label = QtGui.QLabel(parent)
         new_label.setGeometry(x_pos, y_pos, width, height)
         return new_label
+
+    def create_checkbox(self, x_pos, y_pos, width, height, text, font, parent):
+        new_checkbox = QtGui.QCheckBox(text, parent)
+        new_checkbox.setGeometry(x_pos, y_pos, width, height)
+        new_checkbox.setFont(font)
+        return new_checkbox
+
+    def create_push_button(self, x_pos, y_pos, width, height, text, parent):
+        new_button = QtGui.QPushButton(text, parent)
+        new_button.setGeometry(x_pos, y_pos, width, height)
+        return new_button
 
     # executes on completion of checker_thread
     def done_checking(self, response):
@@ -457,6 +448,18 @@ class CheckerWidget(QtGui.QWidget):
         posted = repost_checker.check_image(image_path, True)
         self.checker.sort_image(image_path, posted)
         return posted
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            image_path = url.toLocalFile()
+            if os.path.isfile(image_path):
+                self.single_search(image_path)
 
     def closeEvent(self, event):
         self.checker.save_settings()
