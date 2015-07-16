@@ -44,10 +44,12 @@ class CheckerWidget(QtGui.QWidget):
         # checkboxes
         self.nsfw_checkbox = None
         self.subreddit_checkboxes = dict()
+        # buttons
+        self.set_source_directory_button = None
+        self.set_not_posted_directory_button = None
+        self.set_not_posted_directory_button = None
 
-        self.nsfw_blur = QtGui.QGraphicsBlurEffect()
-        self.nsfw_blur.setBlurRadius(100)
-
+        # create tab view
         self.tab_widget = QtGui.QTabWidget(self)
 
         self.single_search_tab = QtGui.QWidget()
@@ -69,14 +71,12 @@ class CheckerWidget(QtGui.QWidget):
 
         main_layout = QtGui.QVBoxLayout()
         main_layout.addWidget(self.tab_widget)
-
         self.setLayout(main_layout)
+
         self.transparent_black = QtGui.QColor(0, 0, 0, alpha=170)
-
-        # initialize fonts
+        self.nsfw_blur = QtGui.QGraphicsBlurEffect()
+        self.nsfw_blur.setBlurRadius(100)
         self.set_fonts()
-
-        # initialize palettes
         self.overlay_label_palette = None
         self.set_palettes()
 
@@ -85,21 +85,14 @@ class CheckerWidget(QtGui.QWidget):
         if image_path is not None:
             self.single_search(image_path)
 
-        self.set_source_directory_button = QtGui.QPushButton('Select Source Directory', self.bulk_search_tab)
-        self.set_source_directory_button.setGeometry(10, 10, 200, 25)
-        self.set_source_directory_button.clicked.connect(self.make_choose_directory('source'))
-
-        self.set_not_posted_directory_button = QtGui.QPushButton('Select Not Posted Directory', self.bulk_search_tab)
-        self.set_not_posted_directory_button.setGeometry(10, 40, 200, 25)
-        self.set_not_posted_directory_button.clicked.connect(self.make_choose_directory('not_posted'))
-
-        self.set_posted_directory_button = QtGui.QPushButton('Select Posted Directory', self.bulk_search_tab)
-        self.set_posted_directory_button.setGeometry(10, 70, 200, 25)
-        self.set_posted_directory_button.clicked.connect(self.make_choose_directory('posted'))
-
         self.sort_images_button = QtGui.QPushButton('Sort Images', self.bulk_search_tab)
         self.sort_images_button.setGeometry(10, 150, 100, 25)
         self.sort_images_button.setEnabled(False)
+
+    def create_push_button(self, x_pos, y_pos, width, height, text, parent):
+        new_button = QtGui.QPushButton(text, parent)
+        new_button.setGeometry(x_pos, y_pos, width, height)
+        return new_button
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -143,24 +136,24 @@ class CheckerWidget(QtGui.QWidget):
                 self.source_directory_label.setText(self.checker.user_settings['src_dir'])
 
             elif directory_type == 'not_posted':
-                self.checker.not_posted_directory = \
+                temp_directory = \
                     QtGui.QFileDialog.getExistingDirectory(parent=self,
                                                            caption='Choose destination directory for not posted images',
                                                            directory=self.checker.user_settings['src_dir'],
                                                            options=QtGui.QFileDialog.ShowDirsOnly)
+                if temp_directory != '':
+                    self.checker.not_posted_directory = temp_directory
                 self.not_posted_directory_label.setText(self.checker.not_posted_directory)
 
             else:
-                self.checker.posted_directory = \
+                temp_directory = \
                     QtGui.QFileDialog.getExistingDirectory(parent=self,
                                                            caption='Choose destination directory for posted images',
                                                            directory=self.checker.user_settings['src_dir'],
                                                            options=QtGui.QFileDialog.ShowDirsOnly)
+                if temp_directory != '':
+                    self.checker.posted_directory = temp_directory
                 self.posted_directory_label.setText(self.checker.posted_directory)
-            if self.checker.user_settings['src_dir'] is not None and self.checker.user_settings['src_dir'] != '':
-                self.set_posted_directory_button.setEnabled(True)
-                self.set_not_posted_directory_button.setEnabled(True)
-            self.sort_images_button.setEnabled(self.checker.directories_set())
 
         return choose_directory
 
@@ -211,8 +204,23 @@ class CheckerWidget(QtGui.QWidget):
 
     def set_initial_objects(self, image_path):
         self.set_initial_labels(image_path)
-        #self.set_initial_buttons()
+        self.set_initial_buttons()
         self.set_initial_checkboxes()
+
+    def set_initial_buttons(self):
+        self.set_source_directory_button = self.create_push_button(10, 10, 200, 25,
+                                                                   'Select Source Directory',
+                                                                   self.bulk_search_tab)
+        self.set_source_directory_button.clicked.connect(self.make_choose_directory('source'))
+
+        self.set_not_posted_directory_button = self.create_push_button(10, 40, 200, 25,
+                                                                       'Select Not Posted Directory',
+                                                                       self.bulk_search_tab)
+        self.set_not_posted_directory_button.clicked.connect(self.make_choose_directory('not_posted'))
+
+        self.set_posted_directory_button = QtGui.QPushButton('Select Posted Directory', self.bulk_search_tab)
+        self.set_posted_directory_button.setGeometry(10, 70, 200, 25)
+        self.set_posted_directory_button.clicked.connect(self.make_choose_directory('posted'))
 
     def set_initial_checkboxes(self):
         self.nsfw_checkbox = self.create_checkbox(340, 10, 300, 20,
