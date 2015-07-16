@@ -1,0 +1,30 @@
+CheckerWidget {
+    background-color: white;
+}
+
+QTabBar {
+    background-color: white;
+}
+
+QTabWidget {
+    position: absolute;
+    left: 0px;
+}
+
+QTabWidget::pane {
+    border: none;
+}
+
+QTabBar::tab {
+    border: none;
+    width: 150px;
+    height: 30px;
+    margin-bottom: 5px;
+    font-family: "Mission Gothic Thin";
+    font-size: 20px;
+}
+
+QTabBar::tab:hover {
+    color: white;
+    background-color: #e94e77;
+}
