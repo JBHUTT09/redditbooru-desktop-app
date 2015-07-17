@@ -5,7 +5,6 @@ import os
 from PyQt4 import QtCore, QtGui
 import urllib.request
 import threading
-from bs4 import BeautifulSoup
 
 
 class CheckerWidget(QtGui.QWidget):
@@ -24,6 +23,8 @@ class CheckerWidget(QtGui.QWidget):
         with open(self.checker.base_directory + 'media\\stylesheet.css', 'r') as file:
             stylesheet = file.read()
         self.setStyleSheet(stylesheet)
+
+        self.displayed_results = dict()
 
         self.mission_gothic_thin_small = None
         self.mission_gothic_thin_xsmall = None
@@ -50,26 +51,26 @@ class CheckerWidget(QtGui.QWidget):
         self.set_posted_directory_button = None
 
         # create tab view
-        self.tab_widget = QtGui.QTabWidget(self)
-
-        self.single_search_tab = QtGui.QWidget()
-        self.bulk_search_tab = QtGui.QWidget()
-        self.album_tab = QtGui.QWidget()
-        self.options_tab = QtGui.QWidget()
-
+        main_layout = QtGui.QVBoxLayout()
         tab_layout = QtGui.QVBoxLayout()
-
+        self.tab_widget = QtGui.QTabWidget(self)
+        # single search tab
+        self.single_search_tab = QtGui.QWidget()
         self.single_search_tab.setLayout(tab_layout)
-        self.bulk_search_tab.setLayout(tab_layout)
-        self.album_tab.setLayout(tab_layout)
-        self.options_tab.setLayout(tab_layout)
-
         self.tab_widget.addTab(self.single_search_tab, 'Search for Repost')
+        # bulk search and sort tab
+        self.bulk_search_tab = QtGui.QWidget()
+        self.bulk_search_tab.setLayout(tab_layout)
         self.tab_widget.addTab(self.bulk_search_tab, 'Bulk Search')
+        # album creation tab
+        self.album_tab = QtGui.QWidget()
+        self.album_tab.setLayout(tab_layout)
         self.tab_widget.addTab(self.album_tab, 'Build Album')
+        # options and settings tab
+        self.options_tab = QtGui.QWidget()
+        self.options_tab.setLayout(tab_layout)
         self.tab_widget.addTab(self.options_tab, 'Options')
 
-        main_layout = QtGui.QVBoxLayout()
         main_layout.addWidget(self.tab_widget)
         self.setLayout(main_layout)
 
@@ -81,6 +82,7 @@ class CheckerWidget(QtGui.QWidget):
         self.set_palettes()
 
         self.set_initial_objects(image_path)
+
         # if program was opened on an image
         if image_path is not None:
             self.single_search(image_path)
@@ -89,6 +91,8 @@ class CheckerWidget(QtGui.QWidget):
         checker_thread = CheckerThread(self, image_path, self.checker)
         self.connect(checker_thread, QtCore.SIGNAL("Finished ( PyQt_PyObject ) "), self.done_checking)
         checker_thread.start()
+        for result in self.displayed_results:
+            self.displayed_results[result].hide()
         if repost_checker.get_content_type(image_path) == 'image/gif':
             self.original_image_label = self.create_gif_label(10, 70, 300, 300, image_path, self.single_search_tab)
         else:
@@ -390,43 +394,51 @@ class CheckerWidget(QtGui.QWidget):
         self.similar_label.show()
 
         x_pos = 330
+        i = 0
         for result in results:
             image = QtGui.QImage()
             image.loadFromData(result['preview'])
 
-            preview_label = self.create_image_label(x_pos, 70, 300, 300,
-                                                    image,
-                                                    self.single_search_tab)
+            self.displayed_results['preview_label_' + str(i)] = \
+                self.create_image_label(x_pos, 70, 300, 300,
+                                        image,
+                                        self.single_search_tab)
+
             if not self.checker.user_settings['NSFW'] and result['nsfw']:
-                preview_label.setGraphicsEffect(self.nsfw_blur)
-            preview_label.show()
+                self.displayed_results['preview_label_' + str(i)].setGraphicsEffect(self.nsfw_blur)
 
-            title_label = self.create_text_label(x_pos, 70, 300, 28,
-                                                 result['title'],
-                                                 self.single_search_tab)
-            title_label.setFont(self.mission_gothic_thin_small)
-            title_label.setAutoFillBackground(True)
-            title_label.setPalette(self.overlay_label_palette)
-            title_label.show()
+            self.displayed_results['preview_label_' + str(i)].show()
 
-            subreddit_label = self.create_text_label(x_pos, 342, 150, 28,
-                                                     result['subreddit'],
-                                                     self.single_search_tab)
-            subreddit_label.setFont(self.mission_gothic_thin_small)
-            subreddit_label.setAutoFillBackground(True)
-            subreddit_label.setPalette(self.overlay_label_palette)
-            subreddit_label.show()
+            self.displayed_results['title_label_' + str(i)] = \
+                self.create_text_label(x_pos, 70, 300, 28,
+                                       result['title'],
+                                       self.single_search_tab)
+            self.displayed_results['title_label_' + str(i)].setFont(self.mission_gothic_thin_small)
+            self.displayed_results['title_label_' + str(i)].setAutoFillBackground(True)
+            self.displayed_results['title_label_' + str(i)].setPalette(self.overlay_label_palette)
+            self.displayed_results['title_label_' + str(i)].show()
 
-            age_label = self.create_text_label(x_pos + 150, 342, 150, 28,
-                                               self.format_age(result['age']),
-                                               self.single_search_tab)
-            age_label.setFont(self.mission_gothic_thin_small)
-            age_label.setAlignment(QtCore.Qt.AlignRight)
-            age_label.setAutoFillBackground(True)
-            age_label.setPalette(self.overlay_label_palette)
-            age_label.show()
+            self.displayed_results['subreddit_label_' + str(i)] = \
+                self.create_text_label(x_pos, 342, 150, 28,
+                                       result['subreddit'],
+                                       self.single_search_tab)
+            self.displayed_results['subreddit_label_' + str(i)].setFont(self.mission_gothic_thin_small)
+            self.displayed_results['subreddit_label_' + str(i)].setAutoFillBackground(True)
+            self.displayed_results['subreddit_label_' + str(i)].setPalette(self.overlay_label_palette)
+            self.displayed_results['subreddit_label_' + str(i)].show()
+
+            self.displayed_results['age_label_' + str(i)] = \
+                self.create_text_label(x_pos + 150, 342, 150, 28,
+                                       self.format_age(result['age']),
+                                       self.single_search_tab)
+            self.displayed_results['age_label_' + str(i)].setFont(self.mission_gothic_thin_small)
+            self.displayed_results['age_label_' + str(i)].setAlignment(QtCore.Qt.AlignRight)
+            self.displayed_results['age_label_' + str(i)].setAutoFillBackground(True)
+            self.displayed_results['age_label_' + str(i)].setPalette(self.overlay_label_palette)
+            self.displayed_results['age_label_' + str(i)].show()
 
             x_pos += 310
+            i += 1
 
     def sort_images(self):
         def checker(checker_num):
