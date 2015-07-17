@@ -20,11 +20,12 @@ class RepostChecker(object):
         self.not_posted_directory = None
         self.subreddits = dict()
         self.user_settings = dict()
+
         self.load_subreddits()
         self.load_user_settings()
 
-    # set source directory and populate image dict with directory contents
-    def create_image_dict(self):
+    # set source directory and populate image queue with directory contents
+    def create_image_queue(self):
         if self.user_settings['src_dir'] is not None:
             for item in os.listdir(self.user_settings['src_dir']):
                 if os.path.isfile(self.user_settings['src_dir'] + item):
@@ -50,13 +51,15 @@ class RepostChecker(object):
         if destination_directory != self.user_settings['src_dir']:
             os.rename(image_path, destination_directory + os.path.split(image_path)[1])
 
+    # make sure all directories are valid
     def directories_set(self):
-        if self.user_settings['src_dir'] is not None and \
-                self.not_posted_directory is not None and \
-                self.posted_directory is not None:
+        if os.path.isdir(self.user_settings['src_dir']) and \
+                os.path.isdir(self.not_posted_directory) and \
+                os.path.isdir(self.posted_directory):
             return True
         return False
 
+    # get supported subreddits from redditbooru
     def get_subreddits(self):
         response = requests.get('http://redditbooru.com/sources/')
         response = response.json()
@@ -67,12 +70,14 @@ class RepostChecker(object):
                                               'name': subreddit['name']}
         return subreddits
 
+    # load user settings
     def load_user_settings(self):
         with open(self.base_directory + 'media\\user_settings.config', 'r') as file:
             for line in file:
                 line = line.rstrip()
                 setting = line.split(':', 1)
                 self.user_settings[setting[0]] = setting[1]
+        # convert NSFW value to a boolean
         self.user_settings['NSFW'] = bool(int(self.user_settings['NSFW']))
 
         if 'src_dir' in self.user_settings and not os.path.isdir(self.user_settings['src_dir']):
@@ -80,6 +85,7 @@ class RepostChecker(object):
         self.not_posted_directory = self.user_settings['src_dir']
         self.posted_directory = self.user_settings['src_dir']
 
+    # load user subreddit settings (client side specific)
     def load_subreddits(self):
         loaded_subreddits = dict()
         with open(self.base_directory + 'media\\subreddit_settings.config', 'r') as file:
@@ -89,13 +95,16 @@ class RepostChecker(object):
                 loaded_subreddits[setting[0]] = bool(int(setting[1]))
 
         self.subreddits = self.get_subreddits()
+        # in case new subreddits are added
         for subreddit in loaded_subreddits:
             self.subreddits[subreddit]['checked'] = loaded_subreddits[subreddit]
 
+    # save settings
     def save_settings(self):
         self.save_subreddits()
         self.save_user_settings()
 
+    # save user settings (source directory and show NSFW)
     def save_user_settings(self):
         i = len(self.user_settings) - 1
         with open(self.base_directory + 'media\\user_settings.config', 'w') as file:
@@ -109,6 +118,7 @@ class RepostChecker(object):
                 file.write(line)
                 i -= 1
 
+    # save subreddit settings
     def save_subreddits(self):
         i = len(self.subreddits) - 1
         with open(self.base_directory + 'media\\subreddit_settings.config', 'w') as file:
@@ -120,11 +130,14 @@ class RepostChecker(object):
                 file.write(line)
                 i -= 1
 
+    # post image to redditbooru and get response
     def check_image(self, image_path):
+        # add subreddit get parameters
         sources = '?sources='
         for subreddit in self.subreddits:
             if self.subreddits[subreddit]['checked']:
                 sources += str(self.subreddits[subreddit]['value']) + ','
+            # trim final comma
         sources = sources[:-1]
         response = requests.post('http://redditbooru.com/images/' + sources,
                                  files={'upload': (os.path.split(image_path)[1],
@@ -135,6 +148,7 @@ class RepostChecker(object):
         return response.json()
 
 
+# legacy non member functions
 def check_image(image_path):
     response = requests.post('http://redditbooru.com/images/',
                              files={'upload': (os.path.split(image_path)[1],
