@@ -8,6 +8,7 @@ import threading
 
 
 class CheckerWidget(QtGui.QWidget):
+
     # constructor
     def __init__(self, image_path=None):
 
@@ -77,6 +78,9 @@ class CheckerWidget(QtGui.QWidget):
         self.transparent_black = QtGui.QColor(0, 0, 0, alpha=170)
         self.nsfw_blur = QtGui.QGraphicsBlurEffect()
         self.nsfw_blur.setBlurRadius(100)
+        self.nsfw_bounding_size = QtCore.QSizeF(QtCore.QSize(33, 300))
+
+        self.nsfw_blur.boundingRect()
         self.set_fonts()
         self.overlay_label_palette = None
         self.set_palettes()
@@ -88,7 +92,7 @@ class CheckerWidget(QtGui.QWidget):
             self.single_search(image_path)
 
     def single_search(self, image_path):
-        checker_thread = CheckerThread(self, image_path, self.checker)
+        checker_thread = CheckerThread(self, image_path)
         self.connect(checker_thread, QtCore.SIGNAL("Finished ( PyQt_PyObject ) "), self.done_checking)
         checker_thread.start()
         for result in self.displayed_results:
@@ -322,17 +326,20 @@ class CheckerWidget(QtGui.QWidget):
 
     # executes on completion of checker_thread
     def done_checking(self, response):
-        results = []
-        for result in response['results']:
-            if result['sourceName'] is not None:
-                if self.checker.subreddits[result['sourceName']]['checked']:
-                    results.append(result)
-        self.loading_text_label.setText('Loading similar images...')
-        preview_creation_thread = PreviewCreator(self, results)
-        self.connect(preview_creation_thread,
-                     QtCore.SIGNAL("Finished ( PyQt_PyObject ) "),
-                     self.display_results)
-        preview_creation_thread.start()
+        if response == 'test':
+            print(response)
+        else:
+            results = []
+            for result in response['results']:
+                if result['sourceName'] is not None:
+                    if self.checker.subreddits[result['sourceName']]['checked']:
+                        results.append(result)
+            self.loading_text_label.setText('Loading similar images...')
+            preview_creation_thread = PreviewCreator(self, results)
+            self.connect(preview_creation_thread,
+                         QtCore.SIGNAL("Finished ( PyQt_PyObject ) "),
+                         self.display_results)
+            preview_creation_thread.start()
 
     # translates time in seconds to approximate time in English
     # returns string: '<time> ago'
@@ -478,14 +485,20 @@ class CheckerWidget(QtGui.QWidget):
 
 
 class CheckerThread(QtCore.QThread):
-    def __init__(self, parent=None, image_path=None, checker=None):
+    def __init__(self, parent=None, path=None):
         QtCore.QThread.__init__(self, parent)
-        self.image_path = image_path
-        self.checker = checker
+        self.parent = parent
+        self.path = path
 
     def run(self):
-        results = self.checker.check_image(self.image_path)
-        self.emit(QtCore.SIGNAL("Finished ( PyQt_PyObject )"), results)
+        if os.path.isfile(self.path):
+            results = self.parent.checker.check_image(self.path)
+            self.emit(QtCore.SIGNAL("Finished ( PyQt_PyObject )"), results)
+        else:
+            self.run_multi_thread_check()
+
+    def run_multi_thread_check(self):
+        self.emit(QtCore.SIGNAL("Finished ( PyQt_PyObject )"), 'test')
 
 
 class PreviewCreator(QtCore.QThread):
