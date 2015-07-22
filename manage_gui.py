@@ -31,7 +31,7 @@ class CheckerWidget(QtGui.QWidget):
         self.mission_gothic_thin_xsmall = None
         self.mission_gothic_thin_large = None
 
-        # QWidget definitions
+        # QObject definitions (good code practice, apparently)
         # labels
         self.your_image_label = None
         self.original_image_label = None
@@ -51,6 +51,7 @@ class CheckerWidget(QtGui.QWidget):
         self.set_not_posted_directory_button = None
         self.set_posted_directory_button = None
 
+        ########################################
         # create tab view
         main_layout = QtGui.QVBoxLayout()
         tab_layout = QtGui.QVBoxLayout()
@@ -75,37 +76,28 @@ class CheckerWidget(QtGui.QWidget):
         main_layout.addWidget(self.tab_widget)
         self.setLayout(main_layout)
 
+        # miscellaneous creations
         self.transparent_black = QtGui.QColor(0, 0, 0, alpha=170)
         self.nsfw_blur = QtGui.QGraphicsBlurEffect()
         self.nsfw_blur.setBlurRadius(100)
         self.nsfw_bounding_size = QtCore.QSizeF(QtCore.QSize(33, 300))
-
         self.nsfw_blur.boundingRect()
         self.set_fonts()
         self.overlay_label_palette = None
         self.set_palettes()
 
+        # initialize objects to be displayed upon construction
         self.set_initial_objects(image_path)
 
         # if program was opened on an image
         if image_path is not None:
             self.single_search(image_path)
 
-    def single_search(self, image_path):
-        checker_thread = CheckerThread(self, image_path)
-        self.connect(checker_thread, QtCore.SIGNAL("Finished ( PyQt_PyObject ) "), self.done_checking)
-        checker_thread.start()
-        for result in self.displayed_results:
-            self.displayed_results[result].hide()
-        if repost_checker.get_content_type(image_path) == 'image/gif':
-            self.original_image_label = self.create_gif_label(10, 70, 300, 300, image_path, self.single_search_tab)
-        else:
-            self.original_image_label = self.create_image_label(10, 70, 300, 300, image_path, self.single_search_tab)
-        self.original_image_label.show()
-        self.your_image_label.show()
-        self.loading_text_label.setText('Searching...')
-        self.loading_text_label.show()
-        self.loading_label.show()
+    # call QObject setup functions. Keeps __init__ as clean as possible
+    def set_initial_objects(self, image_path):
+        self.set_initial_labels(image_path)
+        self.set_initial_buttons()
+        self.set_initial_checkboxes()
 
     # creates the labels displayed on construction
     def set_initial_labels(self, image_path):
@@ -141,11 +133,7 @@ class CheckerWidget(QtGui.QWidget):
         self.subreddits_label = self.create_text_label(10, 10, 300, 25, 'Subreddits', self.options_tab)
         self.subreddits_label.setFont(self.mission_gothic_thin_small)
 
-    def set_initial_objects(self, image_path):
-        self.set_initial_labels(image_path)
-        self.set_initial_buttons()
-        self.set_initial_checkboxes()
-
+    # creates the buttons displayed on construction
     def set_initial_buttons(self):
         self.set_source_directory_button = self.create_push_button(10, 10, 200, 25,
                                                                    'Select Source Directory',
@@ -166,6 +154,7 @@ class CheckerWidget(QtGui.QWidget):
         self.sort_images_button = QtGui.QPushButton('Sort Images', self.bulk_search_tab)
         self.sort_images_button.setGeometry(10, 150, 100, 25)
 
+    # creates the checkboxes displayed on construction
     def set_initial_checkboxes(self):
         self.nsfw_checkbox = self.create_checkbox(340, 10, 300, 20,
                                                   'Show NSFW',
@@ -174,6 +163,36 @@ class CheckerWidget(QtGui.QWidget):
         self.nsfw_checkbox.stateChanged.connect(self.make_update_nsfw)
         self.nsfw_checkbox.setChecked(self.checker.user_settings['NSFW'])
         self.set_subreddit_checkboxes()
+
+    # creates subreddit checkboxes
+    def set_subreddit_checkboxes(self):
+        i = 0
+        y_pos = 45
+        # alternate code kept in case I decide to do this a different way depending on how things grow
+        """
+        sorted_keys = []
+        sorted_temp = sorted(self.checker.subreddits.items(), key=lambda item: item[1]['value'])
+        for item in sorted_temp:
+            sorted_keys.append(item[0])
+        """
+        sorted_keys = sorted(self.checker.subreddits.keys(), key=lambda key: key.lower())
+        for subreddit in sorted_keys:
+            x_pos = 10
+            if i % 2:
+                x_pos = 210
+                y_pos -= 30
+            self.subreddit_checkboxes[subreddit] = \
+                self.create_checkbox(x_pos, y_pos, 200, 20,
+                                     subreddit,
+                                     self.mission_gothic_thin_xsmall,
+                                     self.options_tab)
+            self.subreddit_checkboxes[subreddit].setChecked(self.checker.subreddits[subreddit]['checked'])
+
+            self.subreddit_checkboxes[subreddit].stateChanged.\
+                connect(self.make_update_subreddits(subreddit))
+
+            y_pos += 30
+            i += 1
 
     # wrapper function to handle NSFW checkbox clicks
     def make_update_nsfw(self):
@@ -223,34 +242,6 @@ class CheckerWidget(QtGui.QWidget):
         def update_subreddits():
             self.checker.subreddits[subreddit]['checked'] = not self.checker.subreddits[subreddit]['checked']
         return update_subreddits
-
-    def set_subreddit_checkboxes(self):
-        i = 0
-        y_pos = 45
-        """
-        sorted_keys = []
-        sorted_temp = sorted(self.checker.subreddits.items(), key=lambda item: item[1]['value'])
-        for item in sorted_temp:
-            sorted_keys.append(item[0])
-        """
-        sorted_keys = sorted(self.checker.subreddits.keys(), key=lambda key: key.lower())
-        for subreddit in sorted_keys:
-            x_pos = 10
-            if i % 2:
-                x_pos = 210
-                y_pos -= 30
-            self.subreddit_checkboxes[subreddit] = \
-                self.create_checkbox(x_pos, y_pos, 200, 20,
-                                     subreddit,
-                                     self.mission_gothic_thin_xsmall,
-                                     self.options_tab)
-            self.subreddit_checkboxes[subreddit].setChecked(self.checker.subreddits[subreddit]['checked'])
-
-            self.subreddit_checkboxes[subreddit].stateChanged.\
-                connect(self.make_update_subreddits(subreddit))
-
-            y_pos += 30
-            i += 1
 
     # centers window
     def center(self):
@@ -313,16 +304,35 @@ class CheckerWidget(QtGui.QWidget):
         new_label.setGeometry(x_pos, y_pos, width, height)
         return new_label
 
+    # creates a checkbox
     def create_checkbox(self, x_pos, y_pos, width, height, text, font, parent):
         new_checkbox = QtGui.QCheckBox(text, parent)
         new_checkbox.setGeometry(x_pos, y_pos, width, height)
         new_checkbox.setFont(font)
         return new_checkbox
 
+    # creates a push button
     def create_push_button(self, x_pos, y_pos, width, height, text, parent):
         new_button = QtGui.QPushButton(text, parent)
         new_button.setGeometry(x_pos, y_pos, width, height)
         return new_button
+
+    # runs a repost check on a single image
+    def single_search(self, image_path):
+        checker_thread = CheckerThread(self, image_path)
+        self.connect(checker_thread, QtCore.SIGNAL("Finished ( PyQt_PyObject ) "), self.done_checking)
+        checker_thread.start()
+        for result in self.displayed_results:
+            self.displayed_results[result].hide()
+        if repost_checker.get_content_type(image_path) == 'image/gif':
+            self.original_image_label = self.create_gif_label(10, 70, 300, 300, image_path, self.single_search_tab)
+        else:
+            self.original_image_label = self.create_image_label(10, 70, 300, 300, image_path, self.single_search_tab)
+        self.original_image_label.show()
+        self.your_image_label.show()
+        self.loading_text_label.setText('Searching...')
+        self.loading_text_label.show()
+        self.loading_label.show()
 
     # executes on completion of checker_thread
     def done_checking(self, response):
@@ -340,59 +350,6 @@ class CheckerWidget(QtGui.QWidget):
                          QtCore.SIGNAL("Finished ( PyQt_PyObject ) "),
                          self.display_results)
             preview_creation_thread.start()
-
-    # translates time in seconds to approximate time in English
-    # returns string: '<time> ago'
-    def format_age(self, age):
-        if age >= 31536000:
-            years = int(age / 31536000)
-            if years == 1:
-                formatted = str(years) + ' year ago'
-            else:
-                formatted = str(years) + ' years ago'
-
-        elif age >= 2592000:
-            months = int(age / 2592000)
-            if months == 1:
-                formatted = str(months) + ' month ago'
-            else:
-                formatted = str(months) + ' months ago'
-
-        elif age >= 604800:
-            weeks = int(age / 604800)
-            if weeks == 1:
-                formatted = str(weeks) + ' week ago'
-            else:
-                formatted = str(weeks) + ' weeks ago'
-
-        elif age >= 86400:
-            days = int(age / 86400)
-            if days == 1:
-                formatted = str(days) + ' day ago'
-            else:
-                formatted = str(days) + ' days ago'
-
-        elif age >= 3600:
-            hours = int(age / 3600)
-            if hours == 1:
-                formatted = str(hours) + ' hour ago'
-            else:
-                formatted = str(hours) + ' hours ago'
-
-        elif age >= 60:
-            minutes = int(age / 60)
-            if minutes == 1:
-                formatted = str(minutes) + ' minute ago'
-            else:
-                formatted = str(minutes) + ' minutes ago'
-
-        else:
-            if age == 1:
-                formatted = str(age) + ' second ago'
-            else:
-                formatted = str(age) + ' seconds ago'
-
-        return formatted
 
     # executes on completion of preview_creation_thread
     def display_results(self, results):
@@ -447,6 +404,7 @@ class CheckerWidget(QtGui.QWidget):
             x_pos += 310
             i += 1
 
+    # for bulk check. not finished and may be discarded based on application growth
     def sort_images(self):
         def checker(checker_num):
             while True:
@@ -463,27 +421,79 @@ class CheckerWidget(QtGui.QWidget):
 
         self.checker.image_queue.join()
 
-    def sort_image(self, image_path):
-        posted = repost_checker.check_image(image_path, True)
-        self.checker.sort_image(image_path, posted)
-        return posted
+    # translates time in seconds to approximate time in English
+    # returns string: '<time> ago'
+    def format_age(self, age):
+        if age >= 31536000:
+            years = int(age / 31536000)
+            if years == 1:
+                formatted = str(years) + ' year ago'
+            else:
+                formatted = str(years) + ' years ago'
 
+        elif age >= 2592000:
+            months = int(age / 2592000)
+            if months == 1:
+                formatted = str(months) + ' month ago'
+            else:
+                formatted = str(months) + ' months ago'
+
+        elif age >= 604800:
+            weeks = int(age / 604800)
+            if weeks == 1:
+                formatted = str(weeks) + ' week ago'
+            else:
+                formatted = str(weeks) + ' weeks ago'
+
+        elif age >= 86400:
+            days = int(age / 86400)
+            if days == 1:
+                formatted = str(days) + ' day ago'
+            else:
+                formatted = str(days) + ' days ago'
+
+        elif age >= 3600:
+            hours = int(age / 3600)
+            if hours == 1:
+                formatted = str(hours) + ' hour ago'
+            else:
+                formatted = str(hours) + ' hours ago'
+
+        elif age >= 60:
+            minutes = int(age / 60)
+            if minutes == 1:
+                formatted = str(minutes) + ' minute ago'
+            else:
+                formatted = str(minutes) + ' minutes ago'
+
+        else:
+            if age == 1:
+                formatted = str(age) + ' second ago'
+            else:
+                formatted = str(age) + ' seconds ago'
+
+        return formatted
+
+    # handles dragging images into the window
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.accept()
         else:
             event.ignore()
 
+    # handles dropping images into the window
     def dropEvent(self, event):
         for url in event.mimeData().urls():
             image_path = url.toLocalFile()
             if os.path.isfile(image_path):
                 self.single_search(image_path)
 
+    # runs on window close
     def closeEvent(self, event):
         self.checker.save_settings()
 
 
+# QThread class that handles repost checks
 class CheckerThread(QtCore.QThread):
     def __init__(self, parent=None, path=None):
         QtCore.QThread.__init__(self, parent)
